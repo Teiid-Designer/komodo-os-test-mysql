@@ -1,0 +1,229 @@
+{
+    "kind": "Template",
+    "apiVersion": "v1",
+    "metadata": {
+        "annotations": {
+            "iconClass": "icon-jboss",
+            "description": "Application template for Mysql Test Database.",
+            "tags": "jdv,datavirt",
+            "version": "1.0.0",
+            "openshift.io/display-name": "Mysql Database containing 3 schema and test data"
+        },
+        "name": "komodo-test-mysql"
+    },
+    "labels": {
+        "template": "komodo-test-mysql",
+        "xpaas": "1.0.0"
+    },
+    "message": "A new data service has been created in your project.  The username/password for accessing the service is ${MYSQL_USERNAME}/${MYSQL_PASSWORD}.",
+    "parameters": [
+        {
+            "description": "The name for the application.",
+            "displayName": "Application Name",
+            "name": "APPLICATION_NAME",
+            "value": "komodo-test-mysql",
+            "required": true
+        },
+        {
+            "description": "Specify a custom hostname for the database route.  Leave blank to use default hostname, e.g.: secure-<service-name>-<project>.<default-domain-suffix>",
+            "displayName": "Custom Database Route Hostname",
+            "name": "HOSTNAME_DB",
+            "value": "",
+            "required": false
+        },
+        {
+            "description": "Database name.",
+            "displayName": "Database Name",
+            "name": "DB_DATABASE",
+            "value": "usstates",
+            "required": false
+        },
+        {
+            "description": "Database user.",
+            "displayName": "Database User",
+            "name": "DB_USERNAME",
+            "value": "admin",
+            "required": false
+        },
+        {
+            "description": "Database password.",
+            "displayName": "Database password",
+            "name": "DB_PASSWORD",
+            "value": "admin",
+            "required": false
+        }
+    ],
+    "objects": [
+        {
+            "kind": "Service",
+            "apiVersion": "v1",
+            "spec": {
+                "ports": [
+                    {
+                        "name": "mysql",
+                        "port": 3306,
+                        "targetPort": "mysql"
+                    }
+                ],
+                "selector": {
+                    "deploymentConfig": "${APPLICATION_NAME}-mysql"
+                }
+            },
+            "metadata": {
+                "name": "${APPLICATION_NAME}",
+                "labels": {
+                    "application": "${APPLICATION_NAME}"
+                },
+                "annotations": {
+                    "description": "The database server's port."
+                }
+            }
+        },
+        {
+            "kind": "Route",
+            "apiVersion": "v1",
+            "id": "${APPLICATION_NAME}",
+            "metadata": {
+                "name": "${APPLICATION_NAME}",
+                "labels": {
+                    "application": "${APPLICATION_NAME}"
+                },
+                "annotations": {
+                    "description": "Route for application's database service."
+                }
+            },
+            "spec": {
+                "host": "${HOSTNAME_DB}",
+                "port": {
+                    "targetPort": "mysql"
+                },
+                "to": {
+                    "name": "${APPLICATION_NAME}"
+                },
+                "tls": {
+                    "termination": "passthrough"
+                }
+            }
+        },
+        {
+            "kind": "ImageStream",
+            "apiVersion": "v1",
+            "metadata": {
+                "name": "${APPLICATION_NAME}",
+                "labels": {
+                    "application": "${APPLICATION_NAME}"
+                }
+            },
+            "spec": {
+                "tags": [
+                    {
+                        "name": "latest",
+                        "type": "Docker",
+                        "from": {
+                            "kind": "DockerImage",
+                            "name": "teiidkomodo/mysql-openshift:latest"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "kind": "DeploymentConfig",
+            "apiVersion": "v1",
+            "metadata": {
+                "name": "${APPLICATION_NAME}",
+                "labels": {
+                    "application": "${APPLICATION_NAME}"
+                }
+            },
+            "spec": {
+                "strategy": {
+                    "type": "Rolling"
+                },
+                "triggers": [
+                    {
+                        "type": "ConfigChange"
+                    },
+                    {
+                        "type": "ImageChange",
+                        "imageChangeParams": {
+                            "automatic": true,
+                            "containerNames": [
+                                "${APPLICATION_NAME}"
+                            ],
+                            "from": {
+                                "kind": "ImageStreamTag",
+                                "name": "${APPLICATION_NAME}:latest"
+                            }
+                        }
+                    }
+                ],
+                "replicas": 1,
+                "selector": {
+                    "deploymentConfig": "${APPLICATION_NAME}"
+                },
+                "template": {
+                    "metadata": {
+                        "name": "${APPLICATION_NAME}",
+                        "labels": {
+                            "deploymentConfig": "${APPLICATION_NAME}",
+                            "application": "${APPLICATION_NAME}"
+                        }
+                    },
+                    "spec": {
+                        "terminationGracePeriodSeconds": "60",
+                        "containers": [
+                            {
+                                "name": "${APPLICATION_NAME}",
+                                "image": "${APPLICATION_NAME}",
+                                "imagePullPolicy": "Always",
+                                "volumeMounts": [
+                                    {
+                                        "name": "${APPLICATION_NAME}-1",
+                                        "mountPath": "/var/lib/mysql/data"
+                                    }
+                                ],
+                                "resources" : {
+                                    "limits" : {
+                                        "cpu" : "1",
+                                        "memory" : "500Mi"
+                                    }
+                                },
+                                "ports": [
+                                    {
+                                        "name": "mysql",
+                                        "containerPort": 3306,
+                                        "protocol": "TCP"
+                                    }
+                                ],
+                                "env": [
+                                    {
+                                        "name": "MYSQL_ROOT_PASSWORD",
+                                        "value": "password"
+                                    },
+                                    {
+                                        "name": "MYSQL_USER",
+                                        "value": "${DB_USERNAME}"
+                                    },
+                                    {
+                                        "name": "MYSQL_PASSWORD",
+                                        "value": "${DB_PASSWORD}"
+                                    },
+                                    {
+                                        "name": "MYSQL_DATABASE",
+                                        "value": "${DB_DATABASE}"
+                                    }
+                                ]
+                            }
+                        ],
+                        "volumes": [
+                            {
+                                "name": "${APPLICATION_NAME}-1"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    ]
+}
