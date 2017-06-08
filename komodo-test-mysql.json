@@ -122,7 +122,9 @@
                         "from": {
                             "kind": "DockerImage",
                             "name": "teiidkomodo/mysql-openshift:latest"
-                        }
+                        },
+                        "forcePull": true,
+                        "noCache": true
                     }
                 ]
             }
